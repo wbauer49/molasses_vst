@@ -15,23 +15,31 @@ ChunkerVstAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Threshold: 0.0 (latch everything) → 1.0 (latch nothing below full scale)
+    // Threshold: -1.0 → 1.0, duplicates any sample whose absolute amplitude exceeds
+    // the threshold magnitude.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         "threshold", "Threshold",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.001f),
         0.5f));
 
-    // Dry/wet mix: 0.0 = fully dry, 1.0 = fully processed
+    // Multiplier: 1 = no duplication, 2 = duplicate each triggered sample once, etc.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "mix", "Mix",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
-        1.0f));
+        "multiplier", "Multiplier",
+        juce::NormalisableRange<float> (1.0f, 8.0f, 1.0f),
+        2.0f));
 
-    // Freeze: when engaged, stop updating the hold register (hold forever)
+    // Reset interval: number of samples until the duplicate buffer state is reset.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "freeze", "Freeze",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 1.0f),   // 0 or 1 only
-        0.0f));
+        "resetSamples", "Reset Samples",
+        juce::NormalisableRange<float> (
+            1.0f, 100000.0f,
+            [] (float start, float end, float normalisedValue) {
+                return start * std::pow (end / start, normalisedValue);
+            },
+            [] (float start, float end, float actualValue) {
+                return std::log (actualValue / start) / std::log (end / start);
+            }),
+        1000.0f));
 
     return { params.begin(), params.end() };
 }
@@ -55,9 +63,9 @@ ChunkerVstAudioProcessor::ChunkerVstAudioProcessor()
     // Hand raw atomic pointers from APVTS to the DSP class.
     // getRawParameterValue() returns a pointer to the internal std::atomic<float>
     // that is updated on the message thread but safely read on the audio thread.
-    sampleHoldProcessor.setThresholdParameter (apvts.getRawParameterValue ("threshold"));
-    sampleHoldProcessor.setMixParameter       (apvts.getRawParameterValue ("mix"));
-    sampleHoldProcessor.setFreezeParameter    (apvts.getRawParameterValue ("freeze"));
+    sampleHoldProcessor.setThresholdParameter   (apvts.getRawParameterValue ("threshold"));
+    sampleHoldProcessor.setMultiplierParameter  (apvts.getRawParameterValue ("multiplier"));
+    sampleHoldProcessor.setResetSamplesParameter (apvts.getRawParameterValue ("resetSamples"));
 }
 
 ChunkerVstAudioProcessor::~ChunkerVstAudioProcessor() {}
@@ -179,43 +187,68 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 //==============================================================================
 SampleHoldProcessor::SampleHoldProcessor (int numChannels)
 {
-    holdRegister.resize (numChannels);
-    holdRegister.fill (0.0f);
+    storage_vectors.resize(numChannels);
+    for (auto& vec : storage_vectors) vec.reserve(100000);
+    thresholdCrossed.assign(numChannels, false);
 }
 
 void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
 {
-    if (!thresholdParam)
+    if (!thresholdParam || !multiplierParam || !resetSamplesParam)
         return;
 
     const float threshold = thresholdParam->load();
-    const float mix       = mixParam       ? mixParam->load()    : 1.0f;
-    const bool  freeze    = freezeParam    ? (freezeParam->load() >= 0.5f) : false;
+    const int multiplier  = juce::jlimit (1, 16, int (std::round (multiplierParam->load())));
+    const int resetSamples = std::max (1, int (std::round (resetSamplesParam->load())));
+    const int numChannels = buffer.getNumChannels();
+    const int numSamples  = buffer.getNumSamples();
 
-    // Ensure hold register is large enough if channel count changes at runtime
-    if (buffer.getNumChannels() > holdRegister.size())
+    if (numChannels != (int) storage_vectors.size())
     {
-        holdRegister.resize (buffer.getNumChannels());
-        holdRegister.fill (0.0f);
+        storage_vectors.resize(numChannels);
+        for (auto& vec : storage_vectors) vec.reserve(100000);
+        thresholdCrossed.assign(numChannels, false);
     }
 
-    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    for (int channel = 0; channel < numChannels; ++channel)
     {
-        float* samples   = buffer.getWritePointer (channel);
-        float  heldValue = holdRegister[channel];
-
-        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        auto& storage = storage_vectors[channel];
+        for (int i = 0; i < numSamples; ++i)
         {
-            const float dry = samples[i];
+            float sample = buffer.getSample(channel, i);
+            storage.push_back(sample);
 
-            // Only update the latch if freeze is off
-            if (!freeze && std::abs (dry) >= threshold)
-                heldValue = dry;
+            if (sample > threshold && !thresholdCrossed[channel])
+            {
+                thresholdCrossed[channel] = true;
+                for (int dup = 1; dup < multiplier; ++dup)
+                {
+                    storage.push_back(sample);
+                }
+            }
+            else if (sample <= threshold)
+            {
+                thresholdCrossed[channel] = false;
+            }
 
-            // Blend dry and processed signals
-            samples[i] = dry + mix * (heldValue - dry);
+            if (storage.size() >= resetSamples)
+            {
+                storage.clear();
+            }
         }
 
-        holdRegister.set (channel, heldValue);
+        // Output from storage
+        for (int i = 0; i < numSamples; ++i)
+        {
+            if (!storage.empty())
+            {
+                buffer.setSample(channel, i, storage.front());
+                storage.erase(storage.begin());
+            }
+            else
+            {
+                buffer.setSample(channel, i, 0.0f);
+            }
+        }
     }
 }

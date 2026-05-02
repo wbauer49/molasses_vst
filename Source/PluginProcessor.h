@@ -8,30 +8,32 @@
 
 #include <JuceHeader.h>
 #include <atomic>
+#include <vector>
 
 //==============================================================================
 /**
-    Sample and hold processor that latches incoming audio values when they
-    exceed a threshold, then outputs the held value until a new threshold
-    crossing occurs.
+    Sample duplication processor that repeats any sample whose absolute
+    amplitude exceeds the threshold, producing a simple sample-length doubling
+    effect when the threshold is hit.
 */
 class SampleHoldProcessor
 {
 public:
     SampleHoldProcessor(int numChannels = 2);
 
-    void setThresholdParameter (std::atomic<float>* param) { thresholdParam = param; }
-    void setMixParameter       (std::atomic<float>* param) { mixParam        = param; }
-    void setFreezeParameter    (std::atomic<float>* param) { freezeParam     = param; }
+    void setThresholdParameter   (std::atomic<float>* param) { thresholdParam   = param; }
+    void setMultiplierParameter  (std::atomic<float>* param) { multiplierParam  = param; }
+    void setResetSamplesParameter(std::atomic<float>* param) { resetSamplesParam = param; }
 
     void processBlock (juce::AudioBuffer<float>& buffer);
 
 private:
-    std::atomic<float>* thresholdParam = nullptr;
-    std::atomic<float>* mixParam       = nullptr;
-    std::atomic<float>* freezeParam    = nullptr;
+    std::atomic<float>* thresholdParam    = nullptr;
+    std::atomic<float>* multiplierParam   = nullptr;
+    std::atomic<float>* resetSamplesParam = nullptr;
 
-    juce::Array<float> holdRegister;
+    std::vector<std::vector<float>> storage_vectors;
+    std::vector<bool> thresholdCrossed;
 };
 
 //==============================================================================

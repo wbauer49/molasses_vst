@@ -11,27 +11,26 @@
 ChunkerVstAudioProcessorEditor::ChunkerVstAudioProcessorEditor (ChunkerVstAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // --- Knobs ---
-    addAndMakeVisible (thresholdKnob);
-    addAndMakeVisible (mixKnob);
+    // --- Sliders ---
+    thresholdSlider.slider.setRange (-1.0, 1.0, 0.001);
+    multiplierSlider.slider.setRange (1.0, 16.0, 1.0);
+    resetSamplesSlider.slider.setRange (1.0, 100000.0, 1.0);
 
-    // --- Freeze button ---
-    freezeButton.setClickingTogglesState (true);
-    freezeButton.setColour (juce::TextButton::buttonOnColourId,
-                            juce::Colour (0xFF'E45C2B));   // warm orange when active
-    addAndMakeVisible (freezeButton);
+    addAndMakeVisible (thresholdSlider);
+    addAndMakeVisible (multiplierSlider);
+    addAndMakeVisible (resetSamplesSlider);
 
     // --- APVTS attachments (must be created after controls are added) ---
     thresholdAttachment = std::make_unique<SliderAttachment> (
-        audioProcessor.apvts, "threshold", thresholdKnob.slider);
+        audioProcessor.apvts, "threshold", thresholdSlider.slider);
 
-    mixAttachment = std::make_unique<SliderAttachment> (
-        audioProcessor.apvts, "mix", mixKnob.slider);
+    multiplierAttachment = std::make_unique<SliderAttachment> (
+        audioProcessor.apvts, "multiplier", multiplierSlider.slider);
 
-    freezeAttachment = std::make_unique<ButtonAttachment> (
-        audioProcessor.apvts, "freeze", freezeButton);
+    resetSamplesAttachment = std::make_unique<SliderAttachment> (
+        audioProcessor.apvts, "resetSamples", resetSamplesSlider.slider);
 
-    setSize (380, 240);
+    setSize (620, 260);
 }
 
 ChunkerVstAudioProcessorEditor::~ChunkerVstAudioProcessorEditor() {}
@@ -44,7 +43,7 @@ void ChunkerVstAudioProcessorEditor::paint (juce::Graphics& g)
 
     // Title
     g.setColour (juce::Colours::white);
-    g.setFont   (juce::Font (22.0f, juce::Font::bold));
+    g.setFont   (juce::Font (juce::FontOptions (22.0f).withTypefaceStyle ("Bold")));
     g.drawText  ("CHUNKER", getLocalBounds().removeFromTop (50),
                  juce::Justification::centred, false);
 
@@ -60,17 +59,11 @@ void ChunkerVstAudioProcessorEditor::resized()
     // Reserve top strip for the title painted in paint()
     area.removeFromTop (36);
 
-    // Row 1: two knobs side by side
-    auto knobRow = area.removeFromTop (130);
-    const int knobW = knobRow.getWidth() / 2;
-    thresholdKnob.setBounds (knobRow.removeFromLeft (knobW).reduced (8));
-    mixKnob.setBounds       (knobRow.reduced (8));
+    // Row 1: three sliders side by side
+    auto sliderRow = area.removeFromTop (150);
+    const int sliderW = sliderRow.getWidth() / 3;
+    thresholdSlider.setBounds    (sliderRow.removeFromLeft (sliderW).reduced (8));
+    multiplierSlider.setBounds   (sliderRow.removeFromLeft (sliderW).reduced (8));
+    resetSamplesSlider.setBounds (sliderRow.reduced (8));
 
-    // Row 2: Freeze button centred
-    area.removeFromTop (8);
-    const int btnW = 110, btnH = 36;
-    freezeButton.setBounds (
-        area.getCentreX() - btnW / 2,
-        area.getY(),
-        btnW, btnH);
 }

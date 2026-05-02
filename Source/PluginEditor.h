@@ -11,31 +11,51 @@
 
 //==============================================================================
 /**
-    A simple labelled rotary knob component used for Threshold and Mix.
+    A simple labelled vertical slider component used for Threshold.
 */
-class LabelledKnob : public juce::Component
+class LabelledSlider : public juce::Component
 {
 public:
     juce::Slider slider;
+    juce::Label  valueLabel;
     juce::Label  label;
 
-    explicit LabelledKnob (const juce::String& labelText)
+    explicit LabelledSlider (const juce::String& labelText)
     {
-        slider.setSliderStyle (juce::Slider::RotaryVerticalDrag);
-        slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 18);
+        slider.setSliderStyle (juce::Slider::LinearVertical);
+        slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         addAndMakeVisible (slider);
+
+        valueLabel.setJustificationType (juce::Justification::centred);
+        valueLabel.setFont (juce::Font (13.0f));
+        addAndMakeVisible (valueLabel);
 
         label.setText (labelText, juce::dontSendNotification);
         label.setJustificationType (juce::Justification::centred);
         label.setFont (juce::Font (13.0f));
         addAndMakeVisible (label);
+
+        updateDisplay();
+        slider.onValueChange = [this] { updateDisplay(); };
     }
 
     void resized() override
     {
         auto area = getLocalBounds();
-        label.setBounds  (area.removeFromBottom (20));
+        auto textArea = area.removeFromBottom (44);
+        valueLabel.setBounds (textArea.removeFromTop (22));
+        label.setBounds (textArea);
         slider.setBounds (area);
+    }
+
+private:
+    void updateDisplay()
+    {
+        const double value = slider.getValue();
+        if (slider.getInterval() >= 1.0)
+            valueLabel.setText (juce::String (int (std::round (value))), juce::dontSendNotification);
+        else
+            valueLabel.setText (juce::String (value, 2), juce::dontSendNotification);
     }
 };
 
@@ -53,18 +73,16 @@ private:
     ChunkerVstAudioProcessor& audioProcessor;
 
     // Controls
-    LabelledKnob thresholdKnob { "Threshold" };
-    LabelledKnob mixKnob       { "Mix"       };
-
-    juce::TextButton freezeButton { "FREEZE" };
+    LabelledSlider thresholdSlider    { "Threshold" };
+    LabelledSlider multiplierSlider   { "Multiplier" };
+    LabelledSlider resetSamplesSlider { "Reset Samples" };
 
     // APVTS attachments — keep these alive for the lifetime of the editor
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     std::unique_ptr<SliderAttachment> thresholdAttachment;
-    std::unique_ptr<SliderAttachment> mixAttachment;
-    std::unique_ptr<ButtonAttachment> freezeAttachment;
+    std::unique_ptr<SliderAttachment> multiplierAttachment;
+    std::unique_ptr<SliderAttachment> resetSamplesAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChunkerVstAudioProcessorEditor)
 };

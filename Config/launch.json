@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build Chunker Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "cmake: build [debug]",
+            "program": "${workspaceFolder}/Build/Chunker_artefacts/Debug/Standalone/Chunker.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+        }
+    ]
+}
