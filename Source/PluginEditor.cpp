@@ -43,8 +43,8 @@ void ChunkerVstAudioProcessorEditor::paint (juce::Graphics& g)
 
     // Title
     g.setColour (juce::Colours::white);
-    g.setFont   (juce::Font (juce::FontOptions (22.0f).withTypefaceStyle ("Bold")));
-    g.drawText  ("CHUNKER", getLocalBounds().removeFromTop (50),
+    g.setFont   (juce::Font (juce::FontOptions (22.0f).withStyle ("Bold")));
+    g.drawText  ("MOLASSES", getLocalBounds().removeFromTop (50),
                  juce::Justification::centred, false);
 
     // Subtle divider under title

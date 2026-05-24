@@ -26,6 +26,7 @@ public:
     void setResetSamplesParameter(std::atomic<float>* param) { resetSamplesParam = param; }
 
     void processBlock (juce::AudioBuffer<float>& buffer);
+    void requestClearStorage() noexcept { clearRequested.store(true); }
 
 private:
     std::atomic<float>* thresholdParam    = nullptr;
@@ -34,18 +35,23 @@ private:
 
     std::vector<std::vector<float>> storage_vectors;
     std::vector<bool> thresholdCrossed;
+    std::atomic<bool> clearRequested{false};
 };
 
 //==============================================================================
 /**
     Main audio processor for the Chunker plugin.
 */
-class ChunkerVstAudioProcessor : public juce::AudioProcessor
+class ChunkerVstAudioProcessor : public juce::AudioProcessor,
+                                  private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     //==============================================================================
     ChunkerVstAudioProcessor();
     ~ChunkerVstAudioProcessor() override;
+
+    // AudioProcessorValueTreeState::Listener
+    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
     //==============================================================================
     void prepareToPlay  (double sampleRate, int samplesPerBlock) override;

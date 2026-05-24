@@ -27,12 +27,12 @@ public:
         addAndMakeVisible (slider);
 
         valueLabel.setJustificationType (juce::Justification::centred);
-        valueLabel.setFont (juce::Font (13.0f));
+        valueLabel.setFont (juce::Font (juce::FontOptions (13.0f)));
         addAndMakeVisible (valueLabel);
 
         label.setText (labelText, juce::dontSendNotification);
         label.setJustificationType (juce::Justification::centred);
-        label.setFont (juce::Font (13.0f));
+        label.setFont (juce::Font (juce::FontOptions (13.0f)));
         addAndMakeVisible (label);
 
         updateDisplay();

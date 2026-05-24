@@ -66,9 +66,19 @@ ChunkerVstAudioProcessor::ChunkerVstAudioProcessor()
     sampleHoldProcessor.setThresholdParameter   (apvts.getRawParameterValue ("threshold"));
     sampleHoldProcessor.setMultiplierParameter  (apvts.getRawParameterValue ("multiplier"));
     sampleHoldProcessor.setResetSamplesParameter (apvts.getRawParameterValue ("resetSamples"));
+
+    // Listen for parameter changes so we can reset storage when sliders update.
+    apvts.addParameterListener ("threshold", this);
+    apvts.addParameterListener ("multiplier", this);
+    apvts.addParameterListener ("resetSamples", this);
 }
 
-ChunkerVstAudioProcessor::~ChunkerVstAudioProcessor() {}
+ChunkerVstAudioProcessor::~ChunkerVstAudioProcessor()
+{
+    apvts.removeParameterListener ("threshold", this);
+    apvts.removeParameterListener ("multiplier", this);
+    apvts.removeParameterListener ("resetSamples", this);
+}
 
 //==============================================================================
 const juce::String ChunkerVstAudioProcessor::getName() const { return "CHUNKER"; }
@@ -197,6 +207,14 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     if (!thresholdParam || !multiplierParam || !resetSamplesParam)
         return;
 
+    // If a parameter change requested a clear from the UI thread, perform it here
+    // on the audio thread to avoid races.
+    if (clearRequested.exchange(false))
+    {
+        for (auto& vec : storage_vectors) vec.clear();
+        std::fill(thresholdCrossed.begin(), thresholdCrossed.end(), false);
+    }
+
     const float threshold = thresholdParam->load();
     const int multiplier  = juce::jlimit (1, 16, int (std::round (multiplierParam->load())));
     const int resetSamples = std::max (1, int (std::round (resetSamplesParam->load())));
@@ -206,7 +224,7 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     if (numChannels != (int) storage_vectors.size())
     {
         storage_vectors.resize(numChannels);
-        for (auto& vec : storage_vectors) vec.reserve(100000);
+        for (auto& vec : storage_vectors) vec.reserve(1000000);
         thresholdCrossed.assign(numChannels, false);
     }
 
@@ -251,4 +269,11 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
             }
         }
     }
+}
+
+//==============================================================================
+// Parameter change listener — called on message thread
+void ChunkerVstAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
+{
+    sampleHoldProcessor.requestClearStorage();
 }
