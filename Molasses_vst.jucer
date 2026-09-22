@@ -2,7 +2,8 @@
 
 <JUCERPROJECT id="mOMwBJ" name="molasses2" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1"
-              pluginFormats="buildVST3">
+              pluginFormats="buildVST3" pluginManufacturer="airsafari" bundleIdentifier="com.airsafari.molasses2"
+              companyWebsite="soundcloud.com/airsafari">
   <MAINGROUP id="GD7BLJ" name="molasses2">
     <GROUP id="{80BD5B5F-70B3-5CE4-2633-CA63CFCF6606}" name="Source">
       <FILE id="tS4DkM" name="PluginProcessor.cpp" compile="1" resource="0"

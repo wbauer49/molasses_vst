@@ -50,7 +50,7 @@
  #define JucePlugin_Manufacturer           "airsafari"
 #endif
 #ifndef  JucePlugin_ManufacturerWebsite
- #define JucePlugin_ManufacturerWebsite    "www.airsafari.com"
+ #define JucePlugin_ManufacturerWebsite    "soundcloud.com/airsafari"
 #endif
 #ifndef  JucePlugin_ManufacturerEmail
  #define JucePlugin_ManufacturerEmail      ""
@@ -113,7 +113,7 @@
  #define JucePlugin_CFBundleIdentifier     com.airsafari.molasses2
 #endif
 #ifndef  JucePlugin_AAXIdentifier
- #define JucePlugin_AAXIdentifier          com.airsafari.molasses2
+ #define JucePlugin_AAXIdentifier          com.yourcompany.molasses2
 #endif
 #ifndef  JucePlugin_AAXManufacturerCode
  #define JucePlugin_AAXManufacturerCode    JucePlugin_ManufacturerCode
@@ -152,10 +152,10 @@
  #define JucePlugin_ARATransformationFlags  0
 #endif
 #ifndef  JucePlugin_ARAFactoryID
- #define JucePlugin_ARAFactoryID           "com.airsafari.molasses2.factory"
+ #define JucePlugin_ARAFactoryID           "com.yourcompany.molasses2.factory"
 #endif
 #ifndef  JucePlugin_ARADocumentArchiveID
- #define JucePlugin_ARADocumentArchiveID   "com.airsafari.molasses2.aradocumentarchive.1.0.0"
+ #define JucePlugin_ARADocumentArchiveID   "com.yourcompany.molasses2.aradocumentarchive.1.0.0"
 #endif
 #ifndef  JucePlugin_ARACompatibleArchiveIDs
  #define JucePlugin_ARACompatibleArchiveIDs  ""
