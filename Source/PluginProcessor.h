@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    PluginProcessor.h — Chunker VST
+    PluginProcessor.h — Molasses VST
   ==============================================================================
 */
 
@@ -8,6 +8,7 @@
 
 #include <JuceHeader.h>
 #include <atomic>
+#include <mutex>
 #include <vector>
 
 //==============================================================================
@@ -27,6 +28,32 @@ public:
 
     void processBlock (juce::AudioBuffer<float>& buffer);
     void requestClearStorage() noexcept { clearRequested.store(true); }
+    void clearDisplayData()
+    {
+        const std::lock_guard<std::mutex> lock (displayMutex);
+        displaySamples.clear();
+    }
+
+    void appendDisplayData (const juce::AudioBuffer<float>& buffer)
+    {
+        const std::lock_guard<std::mutex> lock (displayMutex);
+        const int numSamples = buffer.getNumSamples();
+        if (numSamples <= 0 || buffer.getNumChannels() <= 0)
+            return;
+
+        const auto* channelData = buffer.getReadPointer (0);
+        displaySamples.insert (displaySamples.end(), channelData, channelData + numSamples);
+
+        const int resetSamples = std::max (1, int (std::round (resetSamplesParam ? resetSamplesParam->load() : 1000.0f)));
+        if ((int) displaySamples.size() >= resetSamples)
+            displaySamples.clear();
+    }
+
+    std::vector<float> getDisplayData() const
+    {
+        const std::lock_guard<std::mutex> lock (displayMutex);
+        return displaySamples;
+    }
 
 private:
     std::atomic<float>* thresholdParam    = nullptr;
@@ -36,19 +63,22 @@ private:
     std::vector<std::vector<float>> storage_vectors;
     std::vector<bool> thresholdCrossed;
     std::atomic<bool> clearRequested{false};
+
+    mutable std::mutex displayMutex;
+    std::vector<float> displaySamples;
 };
 
 //==============================================================================
 /**
-    Main audio processor for the Chunker plugin.
+    Main audio processor for the Molasses plugin.
 */
-class ChunkerVstAudioProcessor : public juce::AudioProcessor,
-                                  private juce::AudioProcessorValueTreeState::Listener
+class MolassesVstAudioProcessor : public juce::AudioProcessor,
+                                 private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     //==============================================================================
-    ChunkerVstAudioProcessor();
-    ~ChunkerVstAudioProcessor() override;
+    MolassesVstAudioProcessor();
+    ~MolassesVstAudioProcessor() override;
 
     // AudioProcessorValueTreeState::Listener
     void parameterChanged (const juce::String& parameterID, float newValue) override;
@@ -85,6 +115,11 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    std::vector<float> getLatestSampleDisplay() const
+    {
+        return sampleHoldProcessor.getDisplayData();
+    }
+
     //==============================================================================
     // APVTS — public so the editor can attach sliders/buttons directly
     juce::AudioProcessorValueTreeState apvts;
@@ -96,5 +131,5 @@ private:
     SampleHoldProcessor sampleHoldProcessor;
 
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChunkerVstAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MolassesVstAudioProcessor)
 };

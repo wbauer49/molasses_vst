@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    PluginEditor.cpp — Chunker VST
+    PluginEditor.cpp — Molasses VST
   ==============================================================================
 */
 
@@ -8,7 +8,7 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-ChunkerVstAudioProcessorEditor::ChunkerVstAudioProcessorEditor (ChunkerVstAudioProcessor& p)
+MolassesVstAudioProcessorEditor::MolassesVstAudioProcessorEditor (MolassesVstAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     // --- Sliders ---
@@ -19,6 +19,7 @@ ChunkerVstAudioProcessorEditor::ChunkerVstAudioProcessorEditor (ChunkerVstAudioP
     addAndMakeVisible (thresholdSlider);
     addAndMakeVisible (multiplierSlider);
     addAndMakeVisible (resetSamplesSlider);
+    addAndMakeVisible (sampleGraph);
 
     // --- APVTS attachments (must be created after controls are added) ---
     thresholdAttachment = std::make_unique<SliderAttachment> (
@@ -30,13 +31,13 @@ ChunkerVstAudioProcessorEditor::ChunkerVstAudioProcessorEditor (ChunkerVstAudioP
     resetSamplesAttachment = std::make_unique<SliderAttachment> (
         audioProcessor.apvts, "resetSamples", resetSamplesSlider.slider);
 
-    setSize (620, 260);
+    setSize (620, 420);
 }
 
-ChunkerVstAudioProcessorEditor::~ChunkerVstAudioProcessorEditor() {}
+MolassesVstAudioProcessorEditor::~MolassesVstAudioProcessorEditor() {}
 
 //==============================================================================
-void ChunkerVstAudioProcessorEditor::paint (juce::Graphics& g)
+void MolassesVstAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // Dark background
     g.fillAll (juce::Colour (0xFF'1E1E2E));
@@ -44,7 +45,7 @@ void ChunkerVstAudioProcessorEditor::paint (juce::Graphics& g)
     // Title
     g.setColour (juce::Colours::white);
     g.setFont   (juce::Font (juce::FontOptions (22.0f).withStyle ("Bold")));
-    g.drawText  ("MOLASSES", getLocalBounds().removeFromTop (50),
+    g.drawText  ("molasses2", getLocalBounds().removeFromTop (50),
                  juce::Justification::centred, false);
 
     // Subtle divider under title
@@ -52,7 +53,7 @@ void ChunkerVstAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawHorizontalLine (48, 20.0f, (float) getWidth() - 20.0f);
 }
 
-void ChunkerVstAudioProcessorEditor::resized()
+void MolassesVstAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (20);
 
@@ -60,10 +61,12 @@ void ChunkerVstAudioProcessorEditor::resized()
     area.removeFromTop (36);
 
     // Row 1: three sliders side by side
-    auto sliderRow = area.removeFromTop (150);
+    auto sliderRow = area.removeFromTop (135);
     const int sliderW = sliderRow.getWidth() / 3;
     thresholdSlider.setBounds    (sliderRow.removeFromLeft (sliderW).reduced (8));
     multiplierSlider.setBounds   (sliderRow.removeFromLeft (sliderW).reduced (8));
     resetSamplesSlider.setBounds (sliderRow.reduced (8));
 
+    auto graphArea = area;
+    sampleGraph.setBounds (graphArea.reduced (8));
 }

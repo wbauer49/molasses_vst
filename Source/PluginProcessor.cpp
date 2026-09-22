@@ -1,6 +1,6 @@
 /*
   ==============================================================================
-    PluginProcessor.cpp — Chunker VST
+    PluginProcessor.cpp — Molasses VST
   ==============================================================================
 */
 
@@ -11,7 +11,7 @@
 // Parameter layout — defined once, shared by constructor and any serialisation
 //==============================================================================
 juce::AudioProcessorValueTreeState::ParameterLayout
-ChunkerVstAudioProcessor::createParameterLayout()
+MolassesVstAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
@@ -45,7 +45,7 @@ ChunkerVstAudioProcessor::createParameterLayout()
 }
 
 //==============================================================================
-ChunkerVstAudioProcessor::ChunkerVstAudioProcessor()
+MolassesVstAudioProcessor::MolassesVstAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
@@ -73,7 +73,7 @@ ChunkerVstAudioProcessor::ChunkerVstAudioProcessor()
     apvts.addParameterListener ("resetSamples", this);
 }
 
-ChunkerVstAudioProcessor::~ChunkerVstAudioProcessor()
+MolassesVstAudioProcessor::~MolassesVstAudioProcessor()
 {
     apvts.removeParameterListener ("threshold", this);
     apvts.removeParameterListener ("multiplier", this);
@@ -81,9 +81,9 @@ ChunkerVstAudioProcessor::~ChunkerVstAudioProcessor()
 }
 
 //==============================================================================
-const juce::String ChunkerVstAudioProcessor::getName() const { return "CHUNKER"; }
+const juce::String MolassesVstAudioProcessor::getName() const { return "molasses2"; }
 
-bool ChunkerVstAudioProcessor::acceptsMidi()  const
+bool MolassesVstAudioProcessor::acceptsMidi()  const
 {
    #if JucePlugin_WantsMidiInput
     return true;
@@ -92,7 +92,7 @@ bool ChunkerVstAudioProcessor::acceptsMidi()  const
    #endif
 }
 
-bool ChunkerVstAudioProcessor::producesMidi() const
+bool MolassesVstAudioProcessor::producesMidi() const
 {
    #if JucePlugin_ProducesMidiOutput
     return true;
@@ -101,7 +101,7 @@ bool ChunkerVstAudioProcessor::producesMidi() const
    #endif
 }
 
-bool ChunkerVstAudioProcessor::isMidiEffect() const
+bool MolassesVstAudioProcessor::isMidiEffect() const
 {
    #if JucePlugin_IsMidiEffect
     return true;
@@ -110,24 +110,24 @@ bool ChunkerVstAudioProcessor::isMidiEffect() const
    #endif
 }
 
-double ChunkerVstAudioProcessor::getTailLengthSeconds() const { return 0.0; }
+double MolassesVstAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
-int  ChunkerVstAudioProcessor::getNumPrograms()                              { return 1; }
-int  ChunkerVstAudioProcessor::getCurrentProgram()                           { return 0; }
-void ChunkerVstAudioProcessor::setCurrentProgram (int)                       {}
-const juce::String ChunkerVstAudioProcessor::getProgramName (int)            { return {}; }
-void ChunkerVstAudioProcessor::changeProgramName (int, const juce::String&)  {}
+int  MolassesVstAudioProcessor::getNumPrograms()                              { return 1; }
+int  MolassesVstAudioProcessor::getCurrentProgram()                           { return 0; }
+void MolassesVstAudioProcessor::setCurrentProgram (int)                       {}
+const juce::String MolassesVstAudioProcessor::getProgramName (int)            { return {}; }
+void MolassesVstAudioProcessor::changeProgramName (int, const juce::String&)  {}
 
 //==============================================================================
-void ChunkerVstAudioProcessor::prepareToPlay (double /*sampleRate*/, int /*samplesPerBlock*/)
+void MolassesVstAudioProcessor::prepareToPlay (double /*sampleRate*/, int /*samplesPerBlock*/)
 {
     // Nothing extra needed for the sample-and-hold algorithm.
 }
 
-void ChunkerVstAudioProcessor::releaseResources() {}
+void MolassesVstAudioProcessor::releaseResources() {}
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool ChunkerVstAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool MolassesVstAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
   #if JucePlugin_IsMidiEffect
     juce::ignoreUnused (layouts);
@@ -147,7 +147,7 @@ bool ChunkerVstAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
-void ChunkerVstAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void MolassesVstAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& /*midiMessages*/)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -162,15 +162,15 @@ void ChunkerVstAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
-bool ChunkerVstAudioProcessor::hasEditor() const { return true; }
+bool MolassesVstAudioProcessor::hasEditor() const { return true; }
 
-juce::AudioProcessorEditor* ChunkerVstAudioProcessor::createEditor()
+juce::AudioProcessorEditor* MolassesVstAudioProcessor::createEditor()
 {
-    return new ChunkerVstAudioProcessorEditor (*this);
+    return new MolassesVstAudioProcessorEditor (*this);
 }
 
 //==============================================================================
-void ChunkerVstAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void MolassesVstAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     // Serialise the APVTS tree to XML so DAWs can save/restore presets.
     auto state = apvts.copyState();
@@ -178,7 +178,7 @@ void ChunkerVstAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     copyXmlToBinary (*xml, destData);
 }
 
-void ChunkerVstAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void MolassesVstAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
 
@@ -189,7 +189,7 @@ void ChunkerVstAudioProcessor::setStateInformation (const void* data, int sizeIn
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new ChunkerVstAudioProcessor();
+    return new MolassesVstAudioProcessor();
 }
 
 //==============================================================================
@@ -213,6 +213,7 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     {
         for (auto& vec : storage_vectors) vec.clear();
         std::fill(thresholdCrossed.begin(), thresholdCrossed.end(), false);
+        clearDisplayData();
     }
 
     const float threshold = thresholdParam->load();
@@ -220,6 +221,9 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     const int resetSamples = std::max (1, int (std::round (resetSamplesParam->load())));
     const int numChannels = buffer.getNumChannels();
     const int numSamples  = buffer.getNumSamples();
+
+    if (numChannels > 0 && numSamples > 0)
+        appendDisplayData (buffer);
 
     if (numChannels != (int) storage_vectors.size())
     {
@@ -252,6 +256,7 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
             if (storage.size() >= resetSamples)
             {
                 storage.clear();
+                clearDisplayData();
             }
         }
 
@@ -273,7 +278,7 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
 
 //==============================================================================
 // Parameter change listener — called on message thread
-void ChunkerVstAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
+void MolassesVstAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
     sampleHoldProcessor.requestClearStorage();
 }

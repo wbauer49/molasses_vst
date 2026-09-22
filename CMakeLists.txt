@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(Chunker LANGUAGES CXX)
+project(molasses2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,10 +21,10 @@ file(TO_CMAKE_PATH "${VST3_SDK_PATH}" VST3_SDK_PATH)
 add_subdirectory("${JUCE_PATH}" JUCE)
 
 # Create plugin target
-juce_add_plugin(Chunker
-    PRODUCT_NAME "Chunker"
+juce_add_plugin(molasses2
+    PRODUCT_NAME "molasses2"
     VERSION "1.0.0"
-    COMPANY_NAME "yourcompany"
+    COMPANY_NAME "airsafari"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -35,13 +35,13 @@ juce_add_plugin(Chunker
     PLUGIN_CODE Momb
     FORMATS Standalone
     AU_MAIN_TYPE kAudioUnitType_Effect
-    AU_EXPORT_PREFIX ChunkerAU
-    AU_EXPORT_PREFIX_QUOTED "ChunkerAU"
-    AAX_IDENTIFIER com.yourcompany.chunker
+    AU_EXPORT_PREFIX MolassesAU
+    AU_EXPORT_PREFIX_QUOTED "MolassesAU"
+    AAX_IDENTIFIER com.airsafari.molasses
 )
 
 # Link JUCE modules
-target_link_libraries(Chunker
+target_link_libraries(molasses2
     PRIVATE
         juce::juce_audio_basics
         juce::juce_audio_devices
@@ -58,7 +58,7 @@ target_link_libraries(Chunker
 )
 
 # Source files
-target_sources(Chunker
+target_sources(molasses2
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginProcessor.h
@@ -67,7 +67,7 @@ target_sources(Chunker
 )
 
 # Include directories
-target_include_directories(Chunker
+target_include_directories(molasses2
     PRIVATE
         Source
         JuceLibraryCode
@@ -75,7 +75,7 @@ target_include_directories(Chunker
 
 # Compiler options
 if(MSVC)
-    target_compile_options(Chunker PRIVATE /fp:fast /W4)
+    target_compile_options(molasses2 PRIVATE /fp:fast /W4)
 else()
-    target_compile_options(Chunker PRIVATE -ffast-math -Wall -Wextra)
+    target_compile_options(molasses2 PRIVATE -ffast-math -Wall -Wextra)
 endif()
