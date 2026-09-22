@@ -32,7 +32,7 @@ MolassesVstAudioProcessor::createParameterLayout()
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         "resetSamples", "Reset Samples",
         juce::NormalisableRange<float> (
-            10.0f, 100000.0f,
+            100.0f, 41000.0f,
             [] (float start, float end, float normalisedValue) {
                 return start * std::pow (end / start, normalisedValue);
             },
@@ -198,7 +198,7 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 SampleHoldProcessor::SampleHoldProcessor (int numChannels)
 {
     storage_vectors.resize(numChannels);
-    for (auto& vec : storage_vectors) vec.reserve(1000000);
+    for (auto& vec : storage_vectors) vec.reserve(10000000);
     sampleCount = 0;
 }
 
@@ -228,7 +228,7 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     if (numChannels != (int) storage_vectors.size())
     {
         storage_vectors.resize(numChannels);
-        for (auto& vec : storage_vectors) vec.reserve(1000000);
+        for (auto& vec : storage_vectors) vec.reserve(10000000);
         sampleCount = 0;
     }
 
@@ -266,16 +266,16 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
             }
         }
     }
-    
+
+    if (numChannels > 0 && numSamples > 0)
+        appendProcessedDisplayData (buffer);
+
     if (sampleCount >= resetSamples)
     {
         sampleCount = 0;
         for (auto& vec : storage_vectors) vec.clear();
         clearDisplayData();
     }
-
-    if (numChannels > 0 && numSamples > 0)
-        appendProcessedDisplayData (buffer);
 }
 
 //==============================================================================
