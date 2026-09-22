@@ -24,6 +24,9 @@ public:
     {
         slider.setSliderStyle (juce::Slider::LinearVertical);
         slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        slider.setColour (juce::Slider::backgroundColourId, juce::Colours::black);
+        slider.setColour (juce::Slider::trackColourId, juce::Colours::white);
+        slider.setColour (juce::Slider::thumbColourId, juce::Colours::grey);
         addAndMakeVisible (slider);
 
         valueLabel.setJustificationType (juce::Justification::centred);
@@ -64,8 +67,16 @@ class SampleWaveformDisplay : public juce::Component,
                              private juce::Timer
 {
 public:
-    explicit SampleWaveformDisplay (std::function<std::vector<float>()> sampleSource)
-        : sampleSource (std::move (sampleSource))
+    SampleWaveformDisplay (std::function<std::vector<float>()> beforeSource,
+                           std::function<std::vector<float>()> afterSource,
+                           std::function<float()> thresholdSource,
+                           std::function<bool()> displayDirtySource = {},
+                           std::function<void()> acknowledgeDirty = {})
+        : beforeSource (std::move (beforeSource)),
+          afterSource (std::move (afterSource)),
+          thresholdSource (std::move (thresholdSource)),
+          displayDirtySource (std::move (displayDirtySource)),
+          acknowledgeDirty (std::move (acknowledgeDirty))
     {
         startTimerHz (30);
     }
@@ -77,8 +88,14 @@ public:
         g.setColour (juce::Colour (0xFF'2B3555));
         g.drawRect (plotBounds, 1);
 
-        const auto samples = sampleSource();
-        if (samples.empty())
+        const auto beforeSamples = beforeSource();
+        const auto afterSamples = afterSource();
+        const float thresholdValue = thresholdSource();
+
+        std::vector<float> allSamples = beforeSamples;
+        allSamples.insert (allSamples.end(), afterSamples.begin(), afterSamples.end());
+
+        if (allSamples.empty())
         {
             g.setColour (juce::Colours::white.withAlpha (0.6f));
             g.setFont (juce::Font (12.0f));
@@ -86,9 +103,15 @@ public:
             return;
         }
 
-        auto minMax = std::minmax_element (samples.begin(), samples.end());
-        const float minValue = *minMax.first;
-        const float maxValue = *minMax.second;
+        auto minMax = std::minmax_element (allSamples.begin(), allSamples.end());
+        float minValue = *minMax.first;
+        float maxValue = *minMax.second;
+
+        if (thresholdValue < minValue)
+            minValue = thresholdValue;
+        if (thresholdValue > maxValue)
+            maxValue = thresholdValue;
+
         const float range = std::max (1.0e-5f, maxValue - minValue);
 
         const float left = (float) plotBounds.getX();
@@ -107,35 +130,59 @@ public:
             g.drawHorizontalLine ((int) std::round (zeroY), (int) std::round (left), (int) std::round (right));
         }
 
-        g.setColour (juce::Colour (0xFF'63D2FF));
-        juce::Path waveform;
-        for (size_t i = 0; i < samples.size(); ++i)
+        const float thresholdY = juce::jmap (thresholdValue, minValue, maxValue, bottom, top);
+        g.setColour (juce::Colour (0xFF'FFB870));
+        g.drawHorizontalLine ((int) std::round (thresholdY), (int) std::round (left), (int) std::round (right));
+
+        auto drawCurve = [&] (const std::vector<float>& samples, const juce::Colour& colour, float strokeWidth)
         {
-            const float x = left + ((float) i / (float) std::max (samples.size() - 1, size_t (1))) * (float) plotBounds.getWidth();
-            const float y = bottom - ((samples[i] - minValue) / range) * (float) plotBounds.getHeight();
+            if (samples.empty())
+                return;
 
-            if (i == 0)
-                waveform.startNewSubPath (x, y);
-            else
-                waveform.lineTo (x, y);
-        }
+            juce::Path curve;
+            for (size_t i = 0; i < samples.size(); ++i)
+            {
+                const float x = left + ((float) i / (float) std::max (samples.size() - 1, size_t (1))) * (float) plotBounds.getWidth();
+                const float y = bottom - ((samples[i] - minValue) / range) * (float) plotBounds.getHeight();
 
-        g.strokePath (waveform, juce::PathStrokeType (1.6f));
+                if (i == 0)
+                    curve.startNewSubPath (x, y);
+                else
+                    curve.lineTo (x, y);
+            }
+
+            g.setColour (colour);
+            g.strokePath (curve, juce::PathStrokeType (strokeWidth));
+        };
+
+        drawCurve (beforeSamples, juce::Colour (0xFF'63D2FF), 1.5f);
+        drawCurve (afterSamples, juce::Colour (0xFF'7AE7A3), 1.5f);
 
         g.setColour (juce::Colours::white.withAlpha (0.75f));
         g.setFont (juce::Font (11.0f));
         g.drawText (juce::String (maxValue, 2), juce::Rectangle<float> (left - 4.0f, top - 2.0f, 30.0f, 12.0f), juce::Justification::right, true);
         g.drawText (juce::String (minValue, 2), juce::Rectangle<float> (left - 4.0f, bottom - 12.0f, 30.0f, 12.0f), juce::Justification::right, true);
-        g.drawText ("sample", juce::Rectangle<float> (left + 4.0f, top - 18.0f, 80.0f, 12.0f), juce::Justification::left, true);
+        g.drawText ("before", juce::Rectangle<float> (left + 4.0f, top - 18.0f, 80.0f, 12.0f), juce::Justification::left, true);
+        g.drawText ("after", juce::Rectangle<float> (left + 62.0f, top - 18.0f, 80.0f, 12.0f), juce::Justification::left, true);
+        g.drawText ("threshold", juce::Rectangle<float> (left + 120.0f, top - 18.0f, 90.0f, 12.0f), juce::Justification::left, true);
     }
 
     void timerCallback() override
     {
-        repaint();
+        if (displayDirtySource && displayDirtySource())
+        {
+            repaint();
+            if (acknowledgeDirty)
+                acknowledgeDirty();
+        }
     }
 
 private:
-    std::function<std::vector<float>()> sampleSource;
+    std::function<std::vector<float>()> beforeSource;
+    std::function<std::vector<float>()> afterSource;
+    std::function<float()> thresholdSource;
+    std::function<bool()> displayDirtySource;
+    std::function<void()> acknowledgeDirty;
 };
 
 class MolassesVstAudioProcessorEditor : public juce::AudioProcessorEditor
@@ -155,7 +202,13 @@ private:
     LabelledSlider multiplierSlider   { "Multiplier" };
     LabelledSlider resetSamplesSlider { "Reset Samples" };
 
-    SampleWaveformDisplay sampleGraph { [this] { return audioProcessor.getLatestSampleDisplay(); } };
+    SampleWaveformDisplay sampleGraph {
+        [this] { return audioProcessor.getLatestSampleDisplay(); },
+        [this] { return audioProcessor.getLatestProcessedSampleDisplay(); },
+        [this] { return audioProcessor.getCurrentThreshold(); },
+        [this] { return audioProcessor.hasDisplayChanged(); },
+        [this] { audioProcessor.acknowledgeDisplayChange(); }
+    };
 
     // APVTS attachments — keep these alive for the lifetime of the editor
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;

@@ -25,14 +25,14 @@ MolassesVstAudioProcessor::createParameterLayout()
     // Multiplier: 1 = no duplication, 2 = duplicate each triggered sample once, etc.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         "multiplier", "Multiplier",
-        juce::NormalisableRange<float> (1.0f, 8.0f, 1.0f),
+        juce::NormalisableRange<float> (1.0f, 16.0f, 1.0f),
         2.0f));
 
     // Reset interval: number of samples until the duplicate buffer state is reset.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         "resetSamples", "Reset Samples",
         juce::NormalisableRange<float> (
-            1.0f, 100000.0f,
+            10.0f, 100000.0f,
             [] (float start, float end, float normalisedValue) {
                 return start * std::pow (end / start, normalisedValue);
             },
@@ -198,8 +198,8 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 SampleHoldProcessor::SampleHoldProcessor (int numChannels)
 {
     storage_vectors.resize(numChannels);
-    for (auto& vec : storage_vectors) vec.reserve(100000);
-    thresholdCrossed.assign(numChannels, false);
+    for (auto& vec : storage_vectors) vec.reserve(1000000);
+    sampleCount = 0;
 }
 
 void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
@@ -211,8 +211,8 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     // on the audio thread to avoid races.
     if (clearRequested.exchange(false))
     {
+        sampleCount = 0;
         for (auto& vec : storage_vectors) vec.clear();
-        std::fill(thresholdCrossed.begin(), thresholdCrossed.end(), false);
         clearDisplayData();
     }
 
@@ -229,34 +229,26 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     {
         storage_vectors.resize(numChannels);
         for (auto& vec : storage_vectors) vec.reserve(1000000);
-        thresholdCrossed.assign(numChannels, false);
+        sampleCount = 0;
     }
+
+    sampleCount += numSamples;
 
     for (int channel = 0; channel < numChannels; ++channel)
     {
         auto& storage = storage_vectors[channel];
+
         for (int i = 0; i < numSamples; ++i)
         {
             float sample = buffer.getSample(channel, i);
             storage.push_back(sample);
 
-            if (sample > threshold && !thresholdCrossed[channel])
+            if (sample > threshold)
             {
-                thresholdCrossed[channel] = true;
                 for (int dup = 1; dup < multiplier; ++dup)
                 {
                     storage.push_back(sample);
                 }
-            }
-            else if (sample <= threshold)
-            {
-                thresholdCrossed[channel] = false;
-            }
-
-            if (storage.size() >= resetSamples)
-            {
-                storage.clear();
-                clearDisplayData();
             }
         }
 
@@ -274,6 +266,16 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
             }
         }
     }
+    
+    if (sampleCount >= resetSamples)
+    {
+        sampleCount = 0;
+        for (auto& vec : storage_vectors) vec.clear();
+        clearDisplayData();
+    }
+
+    if (numChannels > 0 && numSamples > 0)
+        appendProcessedDisplayData (buffer);
 }
 
 //==============================================================================

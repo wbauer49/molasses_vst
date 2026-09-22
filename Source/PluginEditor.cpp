@@ -31,7 +31,7 @@ MolassesVstAudioProcessorEditor::MolassesVstAudioProcessorEditor (MolassesVstAud
     resetSamplesAttachment = std::make_unique<SliderAttachment> (
         audioProcessor.apvts, "resetSamples", resetSamplesSlider.slider);
 
-    setSize (620, 420);
+    setSize (620, 720);
 }
 
 MolassesVstAudioProcessorEditor::~MolassesVstAudioProcessorEditor() {}
@@ -60,8 +60,8 @@ void MolassesVstAudioProcessorEditor::resized()
     // Reserve top strip for the title painted in paint()
     area.removeFromTop (36);
 
-    // Row 1: three sliders side by side
-    auto sliderRow = area.removeFromTop (135);
+    // Keep the controls tall but leave room for the graph below
+    auto sliderRow = area.removeFromTop (220);
     const int sliderW = sliderRow.getWidth() / 3;
     thresholdSlider.setBounds    (sliderRow.removeFromLeft (sliderW).reduced (8));
     multiplierSlider.setBounds   (sliderRow.removeFromLeft (sliderW).reduced (8));

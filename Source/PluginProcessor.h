@@ -32,6 +32,14 @@ public:
     {
         const std::lock_guard<std::mutex> lock (displayMutex);
         displaySamples.clear();
+        displayProcessedSamples.clear();
+        displayDirty.store (true);
+    }
+
+    int getDisplayCaptureLimit() const
+    {
+        const int resetSamples = std::max (1, int (std::round (resetSamplesParam ? resetSamplesParam->load() : 1000.0f)));
+        return std::max (1, int (std::round (resetSamples * 0.10f)));
     }
 
     void appendDisplayData (const juce::AudioBuffer<float>& buffer)
@@ -41,12 +49,31 @@ public:
         if (numSamples <= 0 || buffer.getNumChannels() <= 0)
             return;
 
-        const auto* channelData = buffer.getReadPointer (0);
-        displaySamples.insert (displaySamples.end(), channelData, channelData + numSamples);
+        const int captureLimit = getDisplayCaptureLimit();
+        if ((int) displaySamples.size() >= captureLimit)
+            return;
 
-        const int resetSamples = std::max (1, int (std::round (resetSamplesParam ? resetSamplesParam->load() : 1000.0f)));
-        if ((int) displaySamples.size() >= resetSamples)
-            displaySamples.clear();
+        const auto* channelData = buffer.getReadPointer (0);
+        const int samplesToAppend = std::min (numSamples, captureLimit - (int) displaySamples.size());
+        displaySamples.insert (displaySamples.end(), channelData, channelData + samplesToAppend);
+        displayDirty.store (true);
+    }
+
+    void appendProcessedDisplayData (const juce::AudioBuffer<float>& buffer)
+    {
+        const std::lock_guard<std::mutex> lock (displayMutex);
+        const int numSamples = buffer.getNumSamples();
+        if (numSamples <= 0 || buffer.getNumChannels() <= 0)
+            return;
+
+        const int captureLimit = getDisplayCaptureLimit();
+        if ((int) displayProcessedSamples.size() >= captureLimit)
+            return;
+
+        const auto* channelData = buffer.getReadPointer (0);
+        const int samplesToAppend = std::min (numSamples, captureLimit - (int) displayProcessedSamples.size());
+        displayProcessedSamples.insert (displayProcessedSamples.end(), channelData, channelData + samplesToAppend);
+        displayDirty.store (true);
     }
 
     std::vector<float> getDisplayData() const
@@ -55,17 +82,40 @@ public:
         return displaySamples;
     }
 
+    std::vector<float> getProcessedDisplayData() const
+    {
+        const std::lock_guard<std::mutex> lock (displayMutex);
+        return displayProcessedSamples;
+    }
+
+    float getThresholdValue() const
+    {
+        return thresholdParam ? thresholdParam->load() : 0.0f;
+    }
+
+    bool hasDisplayChanged() const
+    {
+        return displayDirty.load();
+    }
+
+    void acknowledgeDisplayChange()
+    {
+        displayDirty.store (false);
+    }
+
 private:
     std::atomic<float>* thresholdParam    = nullptr;
     std::atomic<float>* multiplierParam   = nullptr;
     std::atomic<float>* resetSamplesParam = nullptr;
 
     std::vector<std::vector<float>> storage_vectors;
-    std::vector<bool> thresholdCrossed;
+    int sampleCount;
     std::atomic<bool> clearRequested{false};
 
     mutable std::mutex displayMutex;
     std::vector<float> displaySamples;
+    std::vector<float> displayProcessedSamples;
+    std::atomic<bool> displayDirty { false };
 };
 
 //==============================================================================
@@ -118,6 +168,26 @@ public:
     std::vector<float> getLatestSampleDisplay() const
     {
         return sampleHoldProcessor.getDisplayData();
+    }
+
+    std::vector<float> getLatestProcessedSampleDisplay() const
+    {
+        return sampleHoldProcessor.getProcessedDisplayData();
+    }
+
+    float getCurrentThreshold() const
+    {
+        return sampleHoldProcessor.getThresholdValue();
+    }
+
+    bool hasDisplayChanged() const
+    {
+        return sampleHoldProcessor.hasDisplayChanged();
+    }
+
+    void acknowledgeDisplayChange()
+    {
+        sampleHoldProcessor.acknowledgeDisplayChange();
     }
 
     //==============================================================================
