@@ -7,9 +7,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
 // Parameter layout — defined once, shared by constructor and any serialisation
-//==============================================================================
 juce::AudioProcessorValueTreeState::ParameterLayout
 MolassesVstAudioProcessor::createParameterLayout()
 {
@@ -44,7 +42,6 @@ MolassesVstAudioProcessor::createParameterLayout()
     return { params.begin(), params.end() };
 }
 
-//==============================================================================
 MolassesVstAudioProcessor::MolassesVstAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor (BusesProperties()
@@ -80,7 +77,6 @@ MolassesVstAudioProcessor::~MolassesVstAudioProcessor()
     apvts.removeParameterListener ("resetSamples", this);
 }
 
-//==============================================================================
 const juce::String MolassesVstAudioProcessor::getName() const { return "molasses2"; }
 
 bool MolassesVstAudioProcessor::acceptsMidi()  const
@@ -118,7 +114,6 @@ void MolassesVstAudioProcessor::setCurrentProgram (int)                       {}
 const juce::String MolassesVstAudioProcessor::getProgramName (int)            { return {}; }
 void MolassesVstAudioProcessor::changeProgramName (int, const juce::String&)  {}
 
-//==============================================================================
 void MolassesVstAudioProcessor::prepareToPlay (double /*sampleRate*/, int /*samplesPerBlock*/)
 {
     // Nothing extra needed for the sample-and-hold algorithm.
@@ -161,7 +156,6 @@ void MolassesVstAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     sampleHoldProcessor.processBlock (buffer);
 }
 
-//==============================================================================
 bool MolassesVstAudioProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* MolassesVstAudioProcessor::createEditor()
@@ -169,7 +163,6 @@ juce::AudioProcessorEditor* MolassesVstAudioProcessor::createEditor()
     return new MolassesVstAudioProcessorEditor (*this);
 }
 
-//==============================================================================
 void MolassesVstAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     // Serialise the APVTS tree to XML so DAWs can save/restore presets.
@@ -186,15 +179,12 @@ void MolassesVstAudioProcessor::setStateInformation (const void* data, int sizeI
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
-//==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new MolassesVstAudioProcessor();
 }
 
-//==============================================================================
 // SampleHoldProcessor
-//==============================================================================
 SampleHoldProcessor::SampleHoldProcessor (int numChannels)
 {
     storage_vectors.resize(numChannels);
@@ -207,52 +197,65 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     if (!thresholdParam || !multiplierParam || !resetSamplesParam)
         return;
 
-    // If a parameter change requested a clear from the UI thread, perform it here
-    // on the audio thread to avoid races.
-    if (clearRequested.exchange(false))
-    {
-        sampleCount = 0;
-        for (auto& vec : storage_vectors) vec.clear();
-        clearDisplayData();
-    }
-
     const float threshold = thresholdParam->load();
     const int multiplier  = juce::jlimit (1, 16, int (std::round (multiplierParam->load())));
     const int resetSamples = std::max (1, int (std::round (resetSamplesParam->load())));
     const int numChannels = buffer.getNumChannels();
     const int numSamples  = buffer.getNumSamples();
 
-    if (numChannels > 0 && numSamples > 0)
-        appendDisplayData (buffer);
+    // if (clearRequested.exchange(false))
+    // {
+    //     sampleCount = 0;
+    //     for (auto& vec : storage_vectors) vec.clear();
+    //     clearDisplayData();
+    // }
 
-    if (numChannels != (int) storage_vectors.size())
-    {
-        storage_vectors.resize(numChannels);
-        for (auto& vec : storage_vectors) vec.reserve(10000000);
-        sampleCount = 0;
-    }
+    if (numChannels > 0 && numSamples > 0)
+        appendDisplayData(buffer);
 
     sampleCount += numSamples;
+    
+    int numSamplesRemaining = resetSamples;
+    if (sampleCount >= resetSamples){
+        numSamplesRemaining = sampleCount - resetSamples;
+    }
 
     for (int channel = 0; channel < numChannels; ++channel)
     {
         auto& storage = storage_vectors[channel];
 
-        for (int i = 0; i < numSamples; ++i)
+        for (int i = 0; i < numSamples;++i)
         {
             float sample = buffer.getSample(channel, i);
             storage.push_back(sample);
+            if(storage.size() > numSamplesRemaining){
+                break;
+            }
 
             if (sample > threshold)
             {
                 for (int dup = 1; dup < multiplier; ++dup)
                 {
                     storage.push_back(sample);
+                    if(storage.size() > numSamplesRemaining){
+                        break;
+                    }
                 }
+            }
+            if(storage.size() > numSamplesRemaining){
+                break;
             }
         }
 
-        // Output from storage
+        // ony runs if numSamplesRemaining is less than numSamples, which means we just reset
+        for (int i = numSamplesRemaining; i < numSamples; ++i){
+            float sample = buffer.getSample(channel, i);
+            storage.push_back(sample);
+            if(storage.size() > numSamples - numSamplesRemaining){
+                break;
+            }
+        }
+
         for (int i = 0; i < numSamples; ++i)
         {
             if (!storage.empty())
@@ -268,7 +271,7 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     }
 
     if (numChannels > 0 && numSamples > 0)
-        appendProcessedDisplayData (buffer);
+        appendProcessedDisplayData(buffer);
 
     if (sampleCount >= resetSamples)
     {
@@ -278,9 +281,8 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     }
 }
 
-//==============================================================================
 // Parameter change listener — called on message thread
 void MolassesVstAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
-    sampleHoldProcessor.requestClearStorage();
+    //sampleHoldProcessor.requestClearStorage();
 }

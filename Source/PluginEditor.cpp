@@ -7,7 +7,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
 MolassesVstAudioProcessorEditor::MolassesVstAudioProcessorEditor (MolassesVstAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
@@ -36,7 +35,6 @@ MolassesVstAudioProcessorEditor::MolassesVstAudioProcessorEditor (MolassesVstAud
 
 MolassesVstAudioProcessorEditor::~MolassesVstAudioProcessorEditor() {}
 
-//==============================================================================
 void MolassesVstAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // Dark background
@@ -61,7 +59,7 @@ void MolassesVstAudioProcessorEditor::resized()
     area.removeFromTop (36);
 
     // Keep the controls tall but leave room for the graph below
-    auto sliderRow = area.removeFromTop (220);
+    auto sliderRow = area.removeFromTop (300);
     const int sliderW = sliderRow.getWidth() / 3;
     thresholdSlider.setBounds    (sliderRow.removeFromLeft (sliderW).reduced (8));
     multiplierSlider.setBounds   (sliderRow.removeFromLeft (sliderW).reduced (8));

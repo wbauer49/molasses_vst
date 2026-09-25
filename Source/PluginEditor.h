@@ -9,7 +9,6 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-//==============================================================================
 /**
     A simple labelled vertical slider component used for Threshold.
 */
@@ -62,7 +61,6 @@ private:
     }
 };
 
-//==============================================================================
 class SampleWaveformDisplay : public juce::Component,
                              private juce::Timer
 {
