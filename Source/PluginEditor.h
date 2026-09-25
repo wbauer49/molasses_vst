@@ -101,16 +101,9 @@ public:
             return;
         }
 
-        auto minMax = std::minmax_element (allSamples.begin(), allSamples.end());
-        float minValue = *minMax.first;
-        float maxValue = *minMax.second;
-
-        if (thresholdValue < minValue)
-            minValue = thresholdValue;
-        if (thresholdValue > maxValue)
-            maxValue = thresholdValue;
-
-        const float range = std::max (1.0e-5f, maxValue - minValue);
+        constexpr float minValue = -1.0f;
+        constexpr float maxValue = 1.0f;
+        constexpr float range = maxValue - minValue;
 
         const float left = (float) plotBounds.getX();
         const float top = (float) plotBounds.getY();

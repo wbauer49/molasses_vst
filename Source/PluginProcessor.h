@@ -108,7 +108,7 @@ private:
     std::atomic<float>* resetSamplesParam = nullptr;
 
     std::vector<std::vector<float>> storage_vectors;
-    int sampleCount;
+    int samplesRemaining = 0;
     std::atomic<bool> clearRequested{false};
 
     mutable std::mutex displayMutex;

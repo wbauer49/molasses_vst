@@ -184,12 +184,11 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
     return new MolassesVstAudioProcessor();
 }
 
-// SampleHoldProcessor
 SampleHoldProcessor::SampleHoldProcessor (int numChannels)
 {
     storage_vectors.resize(numChannels);
     for (auto& vec : storage_vectors) vec.reserve(10000000);
-    sampleCount = 0;
+    samplesRemaining = 1;
 }
 
 void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
@@ -202,82 +201,79 @@ void SampleHoldProcessor::processBlock (juce::AudioBuffer<float>& buffer)
     const int resetSamples = std::max (1, int (std::round (resetSamplesParam->load())));
     const int numChannels = buffer.getNumChannels();
     const int numSamples  = buffer.getNumSamples();
+    const int smoothResetSamples = 0;
 
     // if (clearRequested.exchange(false))
     // {
-    //     sampleCount = 0;
+    //     samplesRemaining = 0;
     //     for (auto& vec : storage_vectors) vec.clear();
     //     clearDisplayData();
     // }
 
-    if (numChannels > 0 && numSamples > 0)
-        appendDisplayData(buffer);
+    appendDisplayData(buffer);
 
-    sampleCount += numSamples;
-    
-    int numSamplesRemaining = resetSamples;
-    if (sampleCount >= resetSamples){
-        numSamplesRemaining = sampleCount - resetSamples;
-    }
-
-    for (int channel = 0; channel < numChannels; ++channel)
+    bool storageReset = false;
+    for (int i = 0; i < numSamples; ++i)
     {
-        auto& storage = storage_vectors[channel];
-
-        for (int i = 0; i < numSamples;++i)
+        for (int channel = 0; channel < numChannels; ++channel)
         {
-            float sample = buffer.getSample(channel, i);
-            storage.push_back(sample);
-            if(storage.size() > numSamplesRemaining){
-                break;
-            }
+            auto& storage = storage_vectors[channel];
 
-            if (sample > threshold)
+            if(storage.size() <= samplesRemaining)
             {
-                for (int dup = 1; dup < multiplier; ++dup)
+                float sample = buffer.getSample(channel, i);
+                
+                storage.push_back(sample);
+            
+                if (sample > threshold)
                 {
-                    storage.push_back(sample);
-                    if(storage.size() > numSamplesRemaining){
-                        break;
+                    for (int dup = 1; dup < multiplier; ++dup)
+                    {
+                        if(storage.size() > samplesRemaining){
+                            break;
+                        }
+                        storage.push_back(sample);
                     }
                 }
             }
-            if(storage.size() > numSamplesRemaining){
-                break;
-            }
         }
 
-        // ony runs if numSamplesRemaining is less than numSamples, which means we just reset
-        for (int i = numSamplesRemaining; i < numSamples; ++i){
-            float sample = buffer.getSample(channel, i);
-            storage.push_back(sample);
-            if(storage.size() > numSamples - numSamplesRemaining){
-                break;
-            }
-        }
+        samplesRemaining--;
 
-        for (int i = 0; i < numSamples; ++i)
+        for (int channel = 0; channel < numChannels; ++channel)
         {
-            if (!storage.empty())
+            auto& storage = storage_vectors[channel];
+            if (storage.empty())
+            {
+                //shouldn't happen, but just in case, set to 0
+                buffer.setSample(channel, i, 0.0f);
+            }
+            else
             {
                 buffer.setSample(channel, i, storage.front());
                 storage.erase(storage.begin());
             }
-            else
+
+            if (samplesRemaining <= 0)
             {
-                buffer.setSample(channel, i, 0.0f);
+                storage.clear();
             }
+        }
+
+        if (samplesRemaining <= 0)
+        {
+            samplesRemaining = resetSamples;
+            storageReset = true;
         }
     }
 
-    if (numChannels > 0 && numSamples > 0)
-        appendProcessedDisplayData(buffer);
-
-    if (sampleCount >= resetSamples)
+    if (storageReset)
     {
-        sampleCount = 0;
-        for (auto& vec : storage_vectors) vec.clear();
         clearDisplayData();
+    }
+    else
+    {
+        appendProcessedDisplayData(buffer);
     }
 }
 
